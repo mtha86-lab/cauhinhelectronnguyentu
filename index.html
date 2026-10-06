@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Game điền electron vào ô orbital</title>
+<style>
+:root{--bg:#eef4ff;--c:#2563eb;--ok:#16a34a;--bad:#dc2626;--tx:#1e293b}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#e0ecff,#f3e8ff);color:var(--tx);min-height:100vh}
+.w{max-width:1100px;margin:auto;padding:14px}
+h1{text-align:center;margin:6px 0;font-size:clamp(20px,4vw,34px);color:#1d4ed8}
+.sub{text-align:center;margin:0 0 12px;color:#475569}
+.panel{background:#fff;border-radius:16px;padding:14px;box-shadow:0 4px 16px #0001;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
+button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;background:#e2e8f0;color:var(--tx);transition:.15s}
+button:hover:not(:disabled){transform:translateY(-2px);filter:brightness(.96)}button:disabled{opacity:.45;cursor:not-allowed}
+.on-b{background:var(--c);color:#fff}.big{background:var(--ok);color:#fff;font-size:18px;padding:12px 26px}
+.stats{display:flex;justify-content:space-around;font-size:clamp(16px,3vw,22px);font-weight:700}
+.bar{height:14px;background:#e2e8f0;border-radius:9px;overflow:hidden;margin-top:10px}.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#22c55e,#3b82f6);transition:.4s}
+.q{text-align:center;font-size:clamp(20px,4vw,28px);font-weight:800}.q small{display:block;font-size:16px;font-weight:500;color:#475569;margin-top:4px}
+#orbs{display:flex;flex-wrap:wrap;gap:18px 26px;justify-content:center;padding:10px 0}
+.grp{text-align:center}.boxes{display:flex;gap:4px}
+.orb{width:84px;height:64px;border:3px solid #64748b;background:#f8fafc;display:flex;align-items:center;justify-content:center;gap:2px;font-size:38px;font-weight:700;cursor:pointer;user-select:none;transition:.2s}
+.orb.over{background:#dbeafe}.orb.f{background:#dbeafe;border-color:var(--c)}.orb.ok{background:#dcfce7;border-color:var(--ok)}.orb.no{background:#fee2e2;border-color:var(--bad)}
+.e{display:none;color:#1d4ed8}.e.d{color:#be123c}.e.on{display:inline-block;animation:pop .3s}
+@keyframes pop{0%{transform:scale(0) translateY(-20px)}70%{transform:scale(1.3)}100%{transform:scale(1)}}
+.lab{margin-top:6px;font-weight:800;font-size:18px;color:#334155}
+.shake{animation:sh .4s}@keyframes sh{20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+.card{width:60px;height:60px;border-radius:12px;background:#fff;border:3px solid var(--c);font-size:34px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:none;user-select:none;color:#1d4ed8}
+.card[data-s=d]{color:#be123c;border-color:#be123c}.card[data-s=x]{font-size:15px;width:auto;padding:0 12px;border-color:#64748b;color:#334155}
+.card.sel{box-shadow:0 0 0 4px #fde047}.drag .card:not([data-s=x]){cursor:grab;box-shadow:0 4px 8px #0003}
+.ghost{position:fixed;z-index:99;pointer-events:none;opacity:.9;transform:scale(1.15)}
+#msg,#hint,#res{text-align:center;font-weight:600;margin:8px 0}#msg.bad{color:var(--bad)}#msg.ok{color:var(--ok)}
+#hint{color:#92400e;background:#fef3c7;border-radius:10px;padding:8px;display:none}
+#res{display:none;background:#f0fdf4;border:2px solid var(--ok);border-radius:12px;padding:12px;text-align:left;font-weight:400}
+.cf{position:fixed;top:-20px;font-size:24px;z-index:100;pointer-events:none;animation:fall 2s forwards}@keyframes fall{to{transform:translateY(105vh) rotate(540deg)}}
+.modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;z-index:200;padding:12px}
+.modal>div{background:#fff;border-radius:18px;padding:22px;max-width:520px;width:100%;max-height:90vh;overflow:auto}
+footer{text-align:center;color:#475569;font-size:14px;margin:18px 0 6px;font-style:italic}
+</style></head><body><div class="w">
+<h1>⚛️ GAME ĐIỀN ELECTRON VÀO Ô ORBITAL</h1>
+<p class="sub">Chọn electron và điền vào từng ô orbital theo đúng nguyên lý Pauli và quy tắc Hund.</p>
+<div class="panel row">
+<b>Trò chơi:</b><button id="mP" class="on-b">📘 LUYỆN TẬP</button><button id="mC">🏁 THỬ THÁCH</button>
+<b style="margin-left:12px">Thao tác:</b><button id="iC" class="on-b">👆 CLICK</button><button id="iD">✋ KÉO – THẢ</button></div>
+<div class="panel"><div class="stats"><span id="sQ"></span><span id="sS"></span><span id="sT"></span></div><div class="bar"><i id="pb"></i></div></div>
+<div class="panel">
+<div class="q" id="qt"></div><div id="tot" class="sub" style="margin-top:8px"></div>
+<div class="sub">Từ thứ tự mức năng lượng: <b>1s → 2s → 2p → 3s → 3p → 4s → 3d → 4p</b></div>
+<div id="orbs"></div>
+<div class="row" id="tray" style="margin-top:6px"><span><b>Bảng công cụ electron:</b></span>
+<div class="card" data-s="u">↑</div><div class="card" data-s="d">↓</div><div class="card" data-s="x">Xóa</div></div>
+<div class="sub" id="tip"></div><div id="msg"></div><div id="hint"></div><div id="res"></div>
+<div class="row" style="margin-top:10px">
+<button id="bN">🔄 CÂU MỚI</button><button id="bH">💡 GỢI Ý</button><button class="big" id="bC">✅ KIỂM TRA ĐÁP ÁN</button>
+<button id="bR">🗑️ LÀM LẠI</button><button id="bV" disabled>👁 XEM ĐÁP ÁN</button><button id="bG">📖 HƯỚNG DẪN</button></div></div>
+<footer>Sản phẩm tạo bởi Cô Nguyễn Thị Minh Thanh - THPT Võ Thị Sáu - Phường Gia Định - Thành phố Hồ Chí Minh</footer></div>
+<div class="modal" id="mg"><div><h2>📖 LUẬT CHƠI</h2><ol><li>Xác định tổng số electron của nguyên tử.</li><li>Điền electron theo thứ tự mức năng lượng.</li><li>Mỗi orbital tối đa 2 electron.</li><li>Hai electron trong cùng orbital phải có spin ngược chiều (↑↓).</li><li>Các orbital cùng mức năng lượng phải tuân theo quy tắc Hund.</li><li>Hoàn thành rồi nhấn KIỂM TRA ĐÁP ÁN.</li></ol>
+<p><b>CLICK:</b> nhấn ô để luân phiên trống → ↑ → ↑↓ → trống, hoặc chọn ↑/↓/Xóa rồi nhấn ô.<br><b>KÉO – THẢ:</b> kéo thẻ ↑ hoặc ↓ vào ô; thả sai thì thẻ quay về; nhấn ô để lấy bớt electron.<br><b>Điểm:</b> 10 điểm/câu, dùng gợi ý còn 5. Thử thách: 10 câu, 30 giây/câu. Chỉ xem đáp án sau khi đã KIỂM TRA hoặc hết giờ.</p>
+<button class="on-b" onclick="mg.style.display='none'">Đã hiểu</button></div></div>
+<div class="modal" id="mr"><div id="mrb" style="text-align:center"></div></div>
+<script>
+const $=s=>document.querySelector(s),mg=$('#mg');
+const SUBS=["1s","2s","2p","3s","3p","4s","3d","4p"],CAP={s:2,p:6,d:10};
+const sup=n=>String(n).split('').map(c=>'⁰¹²³⁴⁵⁶⁷⁸⁹'[c]).join('');
+const ND="H|Hydrogen|Hiđro;He|Helium|Heli;Li|Lithium|Liti;Be|Beryllium|Beri;B|Boron|Bo;C|Carbon|Cacbon;N|Nitrogen|Nitơ;O|Oxygen|Oxi;F|Fluorine|Flo;Ne|Neon|Neon;Na|Sodium|Natri;Mg|Magnesium|Magie;Al|Aluminium|Nhôm;Si|Silicon|Silic;P|Phosphorus|Photpho;S|Sulfur|Lưu huỳnh;Cl|Chlorine|Clo;Ar|Argon|Argon;K|Potassium|Kali;Ca|Calcium|Canxi;Sc|Scandium|Scandi;Ti|Titanium|Titan;V|Vanadium|Vanadi;Cr|Chromium|Crom;Mn|Manganese|Mangan;Fe|Iron|Sắt;Co|Cobalt|Coban;Ni|Nickel|Niken;Cu|Copper|Đồng;Zn|Zinc|Kẽm;Ga|Gallium|Gali;Ge|Germanium|Germani;As|Arsenic|Asen;Se|Selenium|Selen;Br|Bromine|Brom;Kr|Krypton|Krypton";
+function cfgOf(Z){let r=Z,m={};SUBS.forEach(s=>{const n=Math.min(CAP[s[1]],r);m[s]=n;r-=n});
+ if(Z==24){m["4s"]=1;m["3d"]=5}if(Z==29){m["4s"]=1;m["3d"]=10}
+ return SUBS.filter(s=>m[s]>0).map(s=>[s,m[s]])}
+const NOBLE={2:"He",10:"Ne",18:"Ar"};
+const EL=ND.split(';').map((t,i)=>{const[a,b,c]=t.split('|'),Z=i+1,cfg=cfgOf(Z);
+ const nz=[18,10,2].find(z=>z<Z);let rest=cfg,short=null;
+ if(nz){const core=cfgOf(nz).map(x=>x[0]);rest=cfg.filter(x=>!core.includes(x[0])||x[1]!=cfgOf(nz).find(y=>y[0]==x[0])[1]);short="["+NOBLE[nz]+"]"+txt(rest)}
+ const unp=cfg.reduce((u,[s,n])=>{const k=CAP[s[1]]/2;return u+(n<=k?n:2*k-n)},0);
+ return{atomicNumber:Z,symbol:a,name:b,viName:c,electronConfiguration:cfg,short,unpaired:unp}});
+function txt(c){return[...c].sort((a,b)=>parseInt(a[0])-parseInt(b[0])||"spd".indexOf(a[0][1])-"spd".indexOf(b[0][1])).map(([s,n])=>s+sup(n)).join('')}
+let ac;function beep(f,d,t='sine'){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type=t;o.frequency.value=f;g.gain.value=.07;o.connect(g);g.connect(ac.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.stop(ac.currentTime+d)}catch(e){}}
+const good=()=>{beep(660,.15);setTimeout(()=>beep(880,.2),120)},bad=()=>beep(170,.25,'square');
+function confetti(){const c=['🎉','✨','🟦','🟩','🟨','⚛️'];for(let i=0;i<40;i++){const s=document.createElement('span');s.className='cf';s.textContent=c[i%6];s.style.left=Math.random()*100+'vw';s.style.animationDelay=Math.random()*.6+'s';document.body.append(s);setTimeout(()=>s.remove(),2800)}}
+let S,Q,tool=null,drag=false,timer,mode='P';
+const cnt=b=>b.reduce((a,x)=>a+x.u+x.d,0),tot=()=>Object.values(Q.boxes).reduce((a,b)=>a+cnt(b),0);
+const exp=s=>(Q.el.electronConfiguration.find(x=>x[0]==s)||[0,0])[1];
+function fmt(t){return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0')}
+function startGame(m){mode=m;S={qi:0,score:0,ok:0,total:0,pool:[...EL].sort(()=>Math.random()-.5)};$('#mP').className=m=='P'?'on-b':'';$('#mC').className=m=='C'?'on-b':'';$('#mr').style.display='none';newQ()}
+function newQ(){let el;if(mode=='C')el=S.pool[S.qi];else{do el=EL[Math.floor(Math.random()*36)];while(S.last==el.atomicNumber);S.last=el.atomicNumber}
+ S.qi++;const last=Math.max(...el.electronConfiguration.map(x=>SUBS.indexOf(x[0])));const subs=SUBS.slice(0,last+1);
+ Q={el,subs,boxes:{},hint:0,hintUsed:false,checked:false,done:false,locked:false,t:0,pts:0};
+ subs.forEach(s=>Q.boxes[s]=Array.from({length:CAP[s[1]]/2},()=>({u:false,d:false})));
+ build();$('#msg').textContent='';$('#msg').className='';$('#hint').style.display='none';$('#res').style.display='none';
+ $('#qt').innerHTML=`Viết cấu hình electron của nguyên tử <b>${el.name} (${el.symbol})</b><small>Z = ${el.atomicNumber}</small>`;
+ $('#tot').innerHTML=`Tổng số electron của nguyên tử <b>${el.symbol}</b> là <b>${el.atomicNumber}</b>`;
+ $('#bN').textContent=mode=='C'?'➡️ CÂU TIẾP':'🔄 CÂU MỚI';ui();clearInterval(timer);timer=setInterval(tick,1000)}
+function build(){const o=$('#orbs');o.innerHTML='';Q.subs.forEach(s=>{const g=document.createElement('div');g.className='grp';
+ g.innerHTML='<div class="boxes">'+Q.boxes[s].map((_,i)=>`<div class="orb" data-s="${s}" data-i="${i}"><b class="e u">↑</b><b class="e d">↓</b></div>`).join('')+`</div><div class="lab" id="l${s}">${s}</div>`;o.append(g)})}
+function refresh(){Q.subs.forEach(s=>{const bs=document.querySelectorAll(`.orb[data-s="${s}"]`);Q.boxes[s].forEach((b,i)=>{const el=bs[i];
+ [['u',b.u],['d',b.d]].forEach(([k,v])=>{const e=el.querySelector('.'+k);if(v&&!e.classList.contains('on')){e.classList.remove('on');void e.offsetWidth;e.classList.add('on')}if(!v)e.classList.remove('on')});
+ el.classList.toggle('f',b.u||b.d)});const n=cnt(Q.boxes[s]);$('#l'+s).textContent=s+(n?sup(n):'')});ui()}
+function ui(){const m=mode=='C';$('#sQ').textContent=m?`Câu: ${Math.min(S.qi,10)}/10`:`Câu: ${S.qi}`;$('#sS').textContent='Điểm: '+S.score;
+ $('#sT').textContent='Thời gian: '+fmt(m?Math.max(0,30-Q.t):Q.t);
+ $('#pb').style.width=(m?(S.qi-(Q.done?0:1))/10*100+(Q.done?0:0):tot()/Q.el.atomicNumber*100)+'%';
+ $('#bV').disabled=!(Q.checked||Q.done)||Q.viewed;$('#bN').disabled=m&&!Q.done;$('#bC').disabled=Q.locked;$('#bH').disabled=Q.locked||Q.hint>=2;$('#bR').disabled=Q.locked;
+ $('#tip').textContent=drag?'Kéo thẻ ↑ / ↓ thả vào ô orbital. Nhấn vào ô để lấy bớt electron.':'Nhấn vào ô để luân phiên trống → ↑ → ↑↓, hoặc chọn ↑ / ↓ / Xóa rồi nhấn ô.'}
+function tick(){if(Q.done)return;Q.t++;S.total++;if(mode=='C'&&Q.t>=30){finish(false,'⏰ Hết giờ! Bạn có thể xem đáp án.');}ui()}
+function clearMarks(){document.querySelectorAll('.orb').forEach(o=>o.classList.remove('ok','no'))}
+function msg(t,c){const m=$('#msg');m.textContent=t;m.className=c||''}
+function fail(t,el){bad();msg(t,'bad');if(el){el.classList.remove('shake');void el.offsetWidth;el.classList.add('shake')}return false}
+function place(s,i,k,el){if(Q.locked)return false;const b=Q.boxes[s][i];
+ if(b[k])return fail('Vi phạm nguyên lý Pauli: mỗi orbital chỉ chứa tối đa 2 electron, spin ngược chiều (↑↓).',el);
+ if(tot()>=Q.el.atomicNumber)return fail(`Nguyên tử ${Q.el.symbol} chỉ có ${Q.el.atomicNumber} electron, không thể điền thêm.`,el);
+ b[k]=true;clearMarks();msg('');beep(520,.08);refresh();return true}
+$('#orbs').onclick=e=>{const o=e.target.closest('.orb');if(!o||Q.locked)return;const s=o.dataset.s,b=Q.boxes[s][+o.dataset.i];
+ if(drag){if(b.d)b.d=false;else b.u=false;clearMarks();refresh();return}
+ if(tool=='x'||(!tool&&b.u&&b.d)){b.u=b.d=false;clearMarks();refresh()}
+ else if(tool)place(s,+o.dataset.i,tool,o);else place(s,+o.dataset.i,b.u?'d':b.d?'u':'u',o)};
+document.querySelectorAll('.card').forEach(c=>{
+ c.onclick=()=>{if(drag){if(c.dataset.s=='x'&&!Q.locked){Object.values(Q.boxes).flat().forEach(b=>b.u=b.d=false);clearMarks();refresh()}return}
+  tool=tool==c.dataset.s?null:c.dataset.s;document.querySelectorAll('.card').forEach(x=>x.classList.toggle('sel',x.dataset.s==tool))};
+ c.onpointerdown=e=>{if(!drag||Q.locked||c.dataset.s=='x')return;e.preventDefault();
+  const g=c.cloneNode(true);g.classList.add('ghost');document.body.append(g);const mv=e=>{g.style.left=e.clientX-30+'px';g.style.top=e.clientY-30+'px'};mv(e);
+  c.setPointerCapture(e.pointerId);c.onpointermove=mv;
+  c.onpointerup=e=>{c.onpointermove=c.onpointerup=null;g.style.display='none';const t=document.elementFromPoint(e.clientX,e.clientY),o=t&&t.closest('.orb');g.style.display='';
+   if(o&&place(o.dataset.s,+o.dataset.i,c.dataset.s,o)){g.remove();good()}
+   else{const r=c.getBoundingClientRect();g.style.transition='all .3s';g.style.left=r.left+'px';g.style.top=r.top+'px';setTimeout(()=>g.remove(),300);
+    if(!o)bad();c.classList.remove('shake');void c.offsetWidth;c.classList.add('shake')}}}});
+function fillAns(){Q.subs.forEach(s=>{const n=exp(s),k=Q.boxes[s].length;Q.boxes[s].forEach((b,i)=>{b.u=i<n;b.d=i<n-k})})}
+function finish(ok,m){Q.done=Q.locked=true;Q.checked=true;clearInterval(timer);msg(m,ok?'ok':'bad');ui();
+ if(mode=='C'&&S.qi>=10)setTimeout(result,1800)}
+function showCfg(){const e=Q.el;return`<b>Cấu hình electron:</b> ${txt(e.electronConfiguration)}${e.short?`<br><b>Rút gọn:</b> ${e.short}`:''}<br><b>Số electron độc thân:</b> ${e.unpaired}`}
+$('#bC').onclick=()=>{if(Q.locked)return;Q.checked=true;const e=Q.el,errs=[],badS=new Set();let T=tot();
+ if(T>e.atomicNumber)errs.push('Bạn đã điền electron vượt quá số electron của nguyên tử.');
+ if(T<e.atomicNumber)errs.push(`Bạn đang thiếu ${e.atomicNumber-T} electron.`);
+ Q.subs.forEach(s=>{const b=Q.boxes[s],k=b.length,n=cnt(b),x=exp(s);
+  if(n>x){errs.push(`Phân lớp ${s} thừa ${n-x} electron (xem lại thứ tự mức năng lượng – nguyên lý vững bền).`);badS.add(s)}
+  else if(n<x){errs.push(`Phân lớp ${s} thiếu ${x-n} electron (xem lại thứ tự mức năng lượng – nguyên lý vững bền).`);badS.add(s)}
+  else{const pairs=b.filter(o=>o.u&&o.d).length,sg=b.filter(o=>o.u!=o.d);
+   if(pairs!=Math.max(0,n-k)){errs.push(`Phân lớp ${s} chưa tuân theo quy tắc Hund (phải điền electron độc thân vào các ô trước khi ghép đôi).`);badS.add(s)}
+   else if(sg.some(o=>o.u)&&sg.some(o=>o.d)){errs.push(`Phân lớp ${s}: các electron độc thân phải cùng chiều spin (quy tắc Hund).`);badS.add(s)}}});
+ document.querySelectorAll('.orb').forEach(o=>{o.classList.remove('ok','no');if(cnt([Q.boxes[o.dataset.s][+o.dataset.i]]))o.classList.add(badS.has(o.dataset.s)?'no':'ok')});
+ if(!errs.length){Q.pts=Q.hintUsed?5:10;S.score+=Q.pts;S.ok++;good();confetti();
+  const r=$('#res');r.style.display='block';
+  r.innerHTML=`<h3>🎉 CHÍNH XÁC! +${Q.pts} điểm</h3>Bạn đã điền đúng cấu hình electron của ${e.name} (${e.symbol}).<br>${showCfg()}<h3>📚 GIẢI THÍCH</h3>${e.symbol} có Z = ${e.atomicNumber} nên nguyên tử trung hòa có ${e.atomicNumber} electron.<br>Electron được phân bố theo thứ tự: 1s → 2s → 2p → 3s → 3p → 4s → 3d → 4p.${e.atomicNumber==24||e.atomicNumber==29?'<br>Lưu ý: '+e.symbol+' là trường hợp đặc biệt (bán bão hòa/bão hòa 3d) nên 1 electron của 4s chuyển sang 3d.':''}<br>Theo nguyên lý Pauli, mỗi orbital chứa tối đa 2 electron với spin ngược chiều.<br>Theo quy tắc Hund, các orbital cùng phân lớp được điền electron độc thân trước khi ghép đôi.`;
+  finish(true,'');ui();return}
+ bad();msg('❌ CHƯA CHÍNH XÁC! '+errs.join(' '),'bad');
+ if(mode=='C')finish(false,'❌ CHƯA CHÍNH XÁC! '+errs.join(' ')+' (0 điểm)');ui()};
+$('#bV').onclick=()=>{if(!(Q.checked||Q.done))return;fillAns();Q.viewed=true;Q.locked=true;
+ if(!Q.done){Q.done=true;clearInterval(timer);if(mode=='C'&&S.qi>=10)setTimeout(result,2500)}
+ clearMarks();document.querySelectorAll('.orb.f').forEach(o=>o.classList.add('ok'));refresh();
+ const r=$('#res');r.style.display='block';r.innerHTML='<h3>👁 ĐÁP ÁN</h3>'+showCfg();msg('Đây là đáp án đúng (không được tính điểm).','')};
+$('#bH').onclick=()=>{Q.hint++;Q.hintUsed=true;const h=$('#hint');h.style.display='block';
+ h.innerHTML=Q.hint==1?'💡 Thứ tự điền: 1s → 2s → 2p → 3s → 3p → 4s → 3d → 4p':'💡 Số electron mỗi phân lớp: '+txt(Q.el.electronConfiguration)+'<br>(Câu này tối đa còn 5 điểm)';ui()};
+$('#bR').onclick=()=>{if(Q.locked)return;Object.values(Q.boxes).flat().forEach(b=>b.u=b.d=false);clearMarks();msg('');refresh()};
+$('#bN').onclick=()=>{if(mode=='C'&&S.qi>=10){result();return}newQ()};
+$('#bG').onclick=()=>mg.style.display='flex';
+$('#mP').onclick=()=>startGame('P');$('#mC').onclick=()=>startGame('C');
+$('#iC').onclick=()=>{drag=false;$('#iC').className='on-b';$('#iD').className='';document.body.classList.remove('drag');ui()};
+$('#iD').onclick=()=>{drag=true;tool=null;document.querySelectorAll('.card').forEach(x=>x.classList.remove('sel'));$('#iD').className='on-b';$('#iC').className='';document.body.classList.add('drag');ui()};
+function result(){clearInterval(timer);const p=S.score,rk=p>=90?'🏆 Bậc thầy Orbital':p>=70?'🌟 Chuyên gia Electron':p>=50?'👍 Đang tiến bộ':'💪 Hãy luyện tập thêm';
+ $('#mrb').innerHTML=`<h2>🏆 KẾT QUẢ</h2><p style="font-size:20px">Điểm: <b>${p}/100</b><br>Số câu đúng: <b>${S.ok}/10</b><br>Thời gian: <b>${fmt(S.total)}</b></p><h2>${rk}</h2><button class="big" id="again">🔄 CHƠI LẠI</button>`;
+ $('#mr').style.display='flex';$('#again').onclick=()=>startGame('C');if(p>=50)confetti()}
+startGame('P');
+</script></body></html>
